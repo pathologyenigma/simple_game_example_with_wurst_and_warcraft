@@ -1,1 +1,2 @@
-# A Game demo written in wurst and runs in warcraft
+# **A Game demo written in wurst and runs in warcraft**
+

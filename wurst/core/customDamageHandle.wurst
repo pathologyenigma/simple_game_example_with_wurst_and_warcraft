@@ -130,17 +130,20 @@ function unit.feedbackCompute()
 function unit.calculateDamage(real originalDamage) returns real
     return damageCals.get(this).exec(originalDamage)
 
+public interface DamageTypeHandler
+    function exec(damagetype value)
+
 
 //实际的控制器
 //可以看到目前用的是单位伤害事件
 //所以目前不支持其他的类型
 public class CustomDamageHandler
     //为控制器绑定对象
-    construct(DamageHandlable target)
+    construct(DamageHandlable target, DamageTypeHandler handler)
         this.target = target
         let ds = GetEventDamageSource()
         EventListener.add(EVENT_UNIT_DAMAGED) ->
-            this.handleDamage()
+            this.handleDamage(handler)
             if this.target.containsFeedBack()
                 this.target.feedbackCompute()
             else
@@ -150,6 +153,29 @@ public class CustomDamageHandler
     //如果你希望自定义这套流程
     //你只需要创建自己的类型即可
     //这个类更多时一种演示
-    private function handleDamage()
+    private function handleDamage(DamageTypeHandler handler)
         //todo
-        DamageEvent.getDamageType()
+        this.dt = DamageEvent.getDamageType()
+        this.handleDamageType(handler)
+            
+    
+    private function handleDamageType(DamageTypeHandler handler)
+        handler.exec(this.dt)
+
+    private damagetype dt
+
+//这个类的诞生只是因为这语言不能隐式实现接口（像go那样多好）
+public class CustomDamagableUnit implements DamageHandlable
+    construct(player p, int unitId, vec2 pos, angle facing)
+        this.target = createUnit(p, unitId, pos, facing)
+    private unit target
+    override function getHP() returns real
+        return target.getHP()
+    override function setHP(real health)
+        target.setHP(health)
+    override function containsFeedBack() returns bool
+        return target.containsFeedBack()
+    override function feedbackCompute()
+        target.feedbackCompute()
+    override function calculateDamage(real originalDamage) returns real
+        return target.calculateDamage(originalDamage)

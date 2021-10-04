@@ -1,5 +1,6 @@
 package main
 
+import customDamageHandle
 
 
 /* Hello and welcome to Wurst!
@@ -9,3 +10,5 @@ and then later delete it and create your own, new packages.
 Enjoy WurstScript? Consider starring our repo https://github.com/wurstscript/WurstScript */ 
 init
 	
+	
+

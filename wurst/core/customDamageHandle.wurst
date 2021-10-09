@@ -6,6 +6,8 @@ import LinkedList
 import HashMap
 
 
+let debug = true
+
 //伤害计算优先级
 //同优先级按添加顺序算
 //不同优先级优先级小的在前面
@@ -156,6 +158,7 @@ public class CustomDamageHandler
     private function handleDamage(DamageTypeHandler handler)
         //todo
         this.dt = DamageEvent.getDamageType()
+        print(dt.getHandleId())
         this.handleDamageType(handler)
             
     

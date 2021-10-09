@@ -1,0 +1,34 @@
+package charactorFactory
+
+import LinkedList
+
+//buff 功能尚未实现，为了避免错误导致无法运行，这里写个假的先
+public interface Buff
+
+//角色类的基类，抽象类是肯定的，当然，不可能会让使用者直接用这个的
+//但是如果真的有需求自然也可以直接继承该类
+public abstract class Character
+
+    //buff队列（/栈，总之是线性结构，至少有逻辑上的顺序关系）
+    //之后buff功能写好后可能会有专门的类型来管理这个
+    //目前还是伪实现
+    protected LinkedList<Buff> buffList
+
+    //在角色被创建的适合会触发该函数
+    //如果需要运行自定义，可以添加对应的接口
+    //把该过程变成类似closure的办法
+    //下面的函数也可以使用相同的方法自定义化
+    protected abstract function onSpawn()
+
+    //死亡时触发，对于没有魔兽自带的死亡事件的类型
+    //需要使用者自己使用计时器等方式执行该函数
+    protected abstract function onDeath()
+
+    //收到伤害时触发该函数，
+    //对于基类运行自实现该方法
+    //但是对于后续实现了damagehandle的子类该函数最好不要重载
+    protected abstract function onDamage()
+
+    //复活时调用，对于不能复活的角色，会无视该方法
+    protected abstract function onRespawn()
+    

@@ -1,0 +1,13 @@
+package Meta
+import charactorFactory
+
+public enum TypeAllowedToRegister
+    Integer
+    String
+    Real
+
+
+public abstract class MetaHandler
+    protected Character target
+
+    protected abstract function registerMeta()

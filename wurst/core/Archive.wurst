@@ -1,241 +1,255 @@
 package Archive
-import LinkedList
+// import LinkedList
 
-import public ChunkedString
-
-
-
-//可以存储的类型
-public enum valueType
-    ArchiveObject
-    ArchiveObjectList
-    Integer
-    Real
-    String
-    Boolean
-    Null
+// import public ChunkedString
 
 
 
-//简单的工具函数，不做过多的讲解
-function valueType.toString() returns string
-    switch this
-        case ArchiveObjectList
-            return "ArchiveObjectList"
-        case ArchiveObject
-            return "ArchiveObject"
-        case Integer
-            return "Integer"
-        case Real
-            return "Real"
-        case String
-            return "String"
-        case Boolean
-            return "Boolean"
-        case Null
-            return ""
+// //可以存储的类型
+// public enum valueType
+//     ArchiveObject
+//     ArchiveObjectList
+//     Integer
+//     Real
+//     String
+//     Boolean
+//     Null
 
 
 
-//用来模拟指针
-//但只能使用获取地址和转成对象的操作
-//相当于*const void
-//需要用户自己指定类型
-//类型错误自行负责
-//没办法，指针就是这种东西
-public tuple pointer(valueType valueType, int address)
+// //简单的工具函数，不做过多的讲解
+// function valueType.toString() returns string
+//     switch this
+//         case ArchiveObjectList
+//             return "ArchiveObjectList"
+//         case ArchiveObject
+//             return "ArchiveObject"
+//         case Integer
+//             return "Integer"
+//         case Real
+//             return "Real"
+//         case String
+//             return "String"
+//         case Boolean
+//             return "Boolean"
+//         case Null
+//             return ""
 
 
 
-//存档数据对象
-//可以理解成json中的对象
-//也可以理解成其他的有父子结构的东西
-//实际存储读取效率并不高
-//还望各位慎用
-//最好只在存档数据有变化时视情况修改
-class ArchiveObject
-    private string name
-    private int value
-    private int index
-    private valueType valueType
-
-    //空的这种对象没有意义
-    construct()
-
-    //初始化带名字类型和实际值的对象
-    construct(string name, int value, valueType valueType)
-        this.name = name
-        this.value = value
-        this.valueType = valueType
-
-    //只创建名字（一般是创建有子对象的对象时使用的较多）
-    construct(string name)
-        this.name = name
-        this.valueType = Null
-
-    //插入子对象
-    //可以理解成树
-    //但效率没有树高（因为子对象存的是链表）
-    //完整数据版本
-    function insertChild(string dataName, int value, valueType valueType) returns ArchiveObject
-        let child = new ArchiveObject(dataName, value, valueType)
-        if this.valueType == Null
-            this.value = child castTo int
-            this.valueType = ArchiveObject
-        else if this.valueType == ArchiveObject
-            let old_value = this.value castTo ArchiveObject
-            let new_value = new LinkedList<ArchiveObject>()
-            this.valueType = ArchiveObjectList
-            new_value..push(old_value).push(child)
-            this.value = new_value castTo int
-        else if this.valueType == ArchiveObjectList
-            let children = this.value castTo LinkedList<ArchiveObject>
-            children.push(child)
-        return child
-
-    //仅名字的版本
-    function insertChild(string dataName) returns ArchiveObject
-        let child = new ArchiveObject(dataName)
-        if this.valueType == Null
-            this.value = child castTo int
-            this.valueType = ArchiveObject
-        else if this.valueType == ArchiveObject
-            let old_value = this.value castTo ArchiveObject
-            let new_value = new LinkedList<ArchiveObject>()
-            this.valueType = ArchiveObjectList
-            new_value..push(old_value).push(child)
-            this.value = new_value castTo int
-        else if this.valueType == ArchiveObjectList
-            let children = this.value castTo LinkedList<ArchiveObject>
-            children.push(child)
-        return child
-
-    //获取对象索引
-    //目前版本没有太多实际作用
-    function getIndex() returns int
-        return this.index
-
-    //设置索引，目前是又管理器为其设置
-    //如需手动设置
-    //请尝试使用uuid或者hash
-    function setIndex(int value)
-        this.index = value
-
-    //面向对象嘛
-    //总有些明明直接访问也不会又很大问题的数据
-    //但就是写成set get的模式
-    function getName() returns string
-        return this.name
-    function getValue() returns pointer
-        return pointer(this.valueType, this.value)
-
-    //为打印全部对象做准备
-    //对于没有子对象的会直接格式化为字符串
-    //对于有子对象的会把名字加到子对象的前面
-    //之所以这么存不是喜欢这样存
-    //是该语言处理字符串和常规配置文件的功能很不完善
-    //这种方式在输出文件的时候会比较简单
-    //虽然读起来一样的不方便
-    function toString(bool needWrap) returns string
-        let res = new ChunkedString()
-        switch this.valueType
-            case ArchiveObjectList
-                let children = this.value castTo LinkedList<ArchiveObject>
-                children.forEach() (child) ->
-                    child.setName(this.name)
-            case ArchiveObject
-                let child = this.value castTo ArchiveObject
-                child.setName(this.name)
-            case Integer
-                res..append(this.name)..append(":")..append(this.value.toString())..append("(")..append(this.valueType.toString()).append(")")
-                if needWrap
-                    res..append("\n")
-            case Real
-                res..append(this.name)..append(":")..append(((this.value castTo ChunkedString).getUnsafeString()))..append("(")..append(this.valueType.toString()).append(")")
-                if needWrap
-                    res..append("\n")
-            case String
-                res..append(this.name)..append(":")..append(((this.value castTo ChunkedString).getUnsafeString()))..append("(")..append(this.valueType.toString()).append(")")
-                if needWrap
-                    res..append("\n")
-            case Boolean
-                let v = this.value == 0? false : true
-                res..append(this.name)..append(":")..append(v? "true": "false")..append("(")..append(this.valueType.toString()).append(")")
-                if needWrap
-                    res..append("\n")
-            case Null
-                res..append(this.name)..append(":")..append("(null)")
-                if needWrap
-                    res..append("\n")
-        return res.getUnsafeString()
-    function setName(string parentName)
-        this.name = parentName + "." + this.name
+// //用来模拟指针
+// //但只能使用获取地址和转成对象的操作
+// //相当于*const void
+// //需要用户自己指定类型
+// //类型错误自行负责
+// //没办法，指针就是这种东西
+// public tuple pointer(valueType valueType, int address)
 
 
 
-//存档管理器
-//一个存档管理器持有一个链表存储对应的数据集
-//输出到文件请根据情况自行使用fileIO
-//由于存档可能会跟玩家自己有关故而最好还是自行管理
-//该类的功能比较基础
-//后续可能会提供功能更强的类以供使用
-//暂时没有name单一性检查
-//不是不想，是主体功能已经足够我烦了
-public class Archive
-    private LinkedList<ArchiveObject> aoList
-    private int index
-    //空构造，构造的为空的管理器
-    construct()
-        this.aoList = new LinkedList<ArchiveObject>()
-        this.index = 0
+// //存档数据对象
+// //可以理解成json中的对象
+// //也可以理解成其他的有父子结构的东西
+// //实际存储读取效率并不高
+// //还望各位慎用
+// //最好只在存档数据有变化时视情况修改
+// class ArchiveObject
+//     private string name
+//     private int value
+//     private int index
+//     private valueType valueType
+
+//     //空的这种对象没有意义
+//     construct()
+
+//     //初始化带名字类型和实际值的对象
+//     construct(string name, int value, valueType valueType)
+//         this.name = name
+//         this.value = value
+//         this.valueType = valueType
+
+//     //只创建名字（一般是创建有子对象的对象时使用的较多）
+//     construct(string name)
+//         this.name = name
+//         this.valueType = Null
+
+//     //插入子对象
+//     //可以理解成树
+//     //但效率没有树高（因为子对象存的是链表）
+//     //完整数据版本
+//     function insertChild(string dataName, int value, valueType valueType) returns ArchiveObject
+//         let child = new ArchiveObject(dataName, value, valueType)
+//         if this.valueType == Null
+//             this.value = child castTo int
+//             this.valueType = ArchiveObject
+//         else if this.valueType == ArchiveObject
+//             let old_value = this.value castTo ArchiveObject
+//             let new_value = new LinkedList<ArchiveObject>()
+//             this.valueType = ArchiveObjectList
+//             new_value..push(old_value).push(child)
+//             this.value = new_value castTo int
+//         else if this.valueType == ArchiveObjectList
+//             let children = this.value castTo LinkedList<ArchiveObject>
+//             children.push(child)
+//         return child
+
+//     //仅名字的版本
+//     function insertChild(string dataName) returns ArchiveObject
+//         let child = new ArchiveObject(dataName)
+//         if this.valueType == Null
+//             this.value = child castTo int
+//             this.valueType = ArchiveObject
+//         else if this.valueType == ArchiveObject
+//             let old_value = this.value castTo ArchiveObject
+//             let new_value = new LinkedList<ArchiveObject>()
+//             this.valueType = ArchiveObjectList
+//             new_value..push(old_value).push(child)
+//             this.value = new_value castTo int
+//         else if this.valueType == ArchiveObjectList
+//             let children = this.value castTo LinkedList<ArchiveObject>
+//             children.push(child)
+//         return child
+
+//     //获取对象索引
+//     //目前版本没有太多实际作用
+//     function getIndex() returns int
+//         return this.index
+
+//     //设置索引，目前是又管理器为其设置
+//     //如需手动设置
+//     //请尝试使用uuid或者hash
+//     function setIndex(int value)
+//         this.index = value
+
+//     //面向对象嘛
+//     //总有些明明直接访问也不会又很大问题的数据
+//     //但就是写成set get的模式
+//     function getName() returns string
+//         return this.name
+//     function getValue() returns pointer
+//         return pointer(this.valueType, this.value)
+
+//     //为打印全部对象做准备
+//     //对于没有子对象的会直接格式化为字符串
+//     //对于有子对象的会把名字加到子对象的前面
+//     //之所以这么存不是喜欢这样存
+//     //是该语言处理字符串和常规配置文件的功能很不完善
+//     //这种方式在输出文件的时候会比较简单
+//     //虽然读起来一样的不方便
+//     function toString(bool needWrap) returns string
+//         let res = new ChunkedString()
+//         switch this.valueType
+//             case ArchiveObjectList
+//                 let children = this.value castTo LinkedList<ArchiveObject>
+//                 children.forEach() (child) ->
+//                     child.setName(this.name)
+//             case ArchiveObject
+//                 let child = this.value castTo ArchiveObject
+//                 child.setName(this.name)
+//             case Integer
+//                 res..append(this.name)..append(":")..append(this.value.toString())..append("(")..append(this.valueType.toString()).append(")")
+//                 if needWrap
+//                     res..append("\n")
+//             case Real
+//                 res..append(this.name)..append(":")..append(((this.value castTo ChunkedString).getUnsafeString()))..append("(")..append(this.valueType.toString()).append(")")
+//                 if needWrap
+//                     res..append("\n")
+//             case String
+//                 res..append(this.name)..append(":")..append(((this.value castTo ChunkedString).getUnsafeString()))..append("(")..append(this.valueType.toString()).append(")")
+//                 if needWrap
+//                     res..append("\n")
+//             case Boolean
+//                 let v = this.value == 0? false : true
+//                 res..append(this.name)..append(":")..append(v? "true": "false")..append("(")..append(this.valueType.toString()).append(")")
+//                 if needWrap
+//                     res..append("\n")
+//             case Null
+//                 res..append(this.name)..append(":")..append("(null)")
+//                 if needWrap
+//                     res..append("\n")
+//         return res.getUnsafeString()
+//     function setName(string parentName)
+//         this.name = parentName + "." + this.name
+
+
+
+// //存档管理器
+// //一个存档管理器持有一个链表存储对应的数据集
+// //输出到文件请根据情况自行使用fileIO
+// //由于存档可能会跟玩家自己有关故而最好还是自行管理
+// //该类的功能比较基础
+// //后续可能会提供功能更强的类以供使用
+// //暂时没有name单一性检查
+// //不是不想，是主体功能已经足够我烦了
+// public class Archive
+//     private LinkedList<ArchiveObject> aoList
+//     private int index
+//     //空构造，构造的为空的管理器
+//     construct()
+//         this.aoList = new LinkedList<ArchiveObject>()
+//         this.index = 0
     
-    //根据已有的存档数据进行构造
-    construct(string data)
+//     //根据已有的存档数据进行构造
+//     construct(string data)
         
-    //为某个对象添加子对象
-    function newArchiveObject(int parentId,string name, pointer p) returns int
-        let parent = this.aoList.get(parentId)
-        let ao = parent.insertChild(name, p.address, p.valueType)
-        let index = this.index
-        ao.setIndex(index)
-        this.aoList.push(ao)
-        this.index++
-        return index
+//     //为某个对象添加子对象
+//     function newArchiveObject(int parentId,string name, pointer p) returns int
+//         let parent = this.aoList.get(parentId)
+//         let ao = parent.insertChild(name, p.address, p.valueType)
+//         let index = this.index
+//         ao.setIndex(index)
+//         this.aoList.push(ao)
+//         this.index++
+//         return index
     
-    //添加一条顶层对象
-    function newArchiveObject(string name, pointer p) returns int
-        let ao = new ArchiveObject(name, p.address, p.valueType)
-        let index = this.index
-        ao.setIndex(index)
-        this.aoList.push(ao)
-        this.index++
-        return index
+//     //添加一条顶层对象
+//     function newArchiveObject(string name, pointer p) returns int
+//         let ao = new ArchiveObject(name, p.address, p.valueType)
+//         let index = this.index
+//         ao.setIndex(index)
+//         this.aoList.push(ao)
+//         this.index++
+//         return index
     
-    //创建一条只能名字的顶层对象
-    function newArchiveObject(string name) returns int
-        let ao = new ArchiveObject(name)
-        let index = this.index
-        ao.setIndex(index)
-        this.aoList.push(ao)
-        this.index++
-        return index
+//     //创建一条只能名字的顶层对象
+//     function newArchiveObject(string name) returns int
+//         let ao = new ArchiveObject(name)
+//         let index = this.index
+//         ao.setIndex(index)
+//         this.aoList.push(ao)
+//         this.index++
+//         return index
 
-    //为某个对象创建一个只有名字的子对象
-    function newArchiveObject(int parentId, string name) returns int
-        let parent = this.aoList.get(parentId)
-        let ao = parent.insertChild(name)
-        let index = this.index
-        ao.setIndex(index)
-        this.aoList.push(ao)
-        this.index++
-        return index
+//     //为某个对象创建一个只有名字的子对象
+//     function newArchiveObject(int parentId, string name) returns int
+//         let parent = this.aoList.get(parentId)
+//         let ao = parent.insertChild(name)
+//         let index = this.index
+//         ao.setIndex(index)
+//         this.aoList.push(ao)
+//         this.index++
+//         return index
     
-    //转字符串
-    //不直接输出的原因是这里并不知道是哪个玩家的东西
-    function toString() returns string
-        let res = new ChunkedString()
-        for i = 0 to this.index-1
-            let ao = this.aoList.get(i)
-            res..append(ao.toString(not i == this.index - 1))
-        return res.getUnsafeString()
+//     //转字符串
+//     //不直接输出的原因是这里并不知道是哪个玩家的东西
+//     function toString() returns string
+//         let res = new ChunkedString()
+//         for i = 0 to this.index-1
+//             let ao = this.aoList.get(i)
+//             res..append(ao.toString(not i == this.index - 1))
+//         return res.getUnsafeString()
     
+//以上只是一种尝试，真存档还得是用自带的存储功能
+
+public class Archive
+    gamecache array[12] data
+    construct(int playerIndex, string cacheName)
+        this.data[playerIndex] = InitGameCache(cacheName)
+
+    construct(int playerIndex)
+        this.data[playerIndex] = InitGameCache(players[playerIndex].getName(true))
+    
+        
+public interface Archivable
+    function save()
+    function load()

@@ -5,180 +5,38 @@ import DamageEvent
 import LinkedList
 import HashMap
 
-
 let debug = true
 
-//伤害计算优先级
-//同优先级按添加顺序算
-//不同优先级优先级小的在前面
-public enum DamageCalculatePriority
-    FirstClass
-    SecondClass
-    ThirdClass
+//之前的版本大概的思路为模拟一模一样的伤害流程
+//但是这种行为会严重影响性能和使用体验
+//故而这里提供一种相对更简单的方式
+//即使用看不见的工具人单位
+//这些单位被存储在一个池中，到需要的时候会尝试从中提取作为伤害的发起者
+//而伤害事件和伤害机制沿用原生的
+//印象中wurst提供了一个叫做dummy的东西用了释放法术
+//这里的功能有所不同，只是将伤害事件外包给一个临时单位
+//以避免直接使用原单位给予伤害事件导致无限触发某些自定义的伤害事件
+//工具人对象池的深浅将对该功能有巨大影响，需谨慎设置
+//工具人的护甲等数据可能会对收到的伤害有影响，请选用合适的工具人
+public abstract class DamageHandler
+    //该函数会返回各项伤害计算的结果给到原生的伤害判定上
+    //增伤减伤，暴击闪避格挡之类的请自己给出计算的算法和流程
+    //会获取伤害来源的handler
+    //输入的伤害为上一个伤害计算结果
+    abstract function onDamage(DamageHandler source, real damage) returns real
+    //该函数会返回一个受到伤害后的反馈
+    //对于没有反弹，反射之类的实现的情况下，可以忽略该函数
+    //会获取单位实例（可能获取到的是工具人单位，需要额外的判断）
+    abstract function feedback(unit source)
+    protected unit bindingUnit
 
+public class DefaultDamageHandle extends DamageHandler
+    //默认的管理器就是什么也不管
+    //直接返回伤害数值
+    //经由角色生成器生成的角色对象全部都拥有至少一个这个伤害管理器
+    //注意：这个是为了行为统一而提供的额外抽象
+    //当你实现了一个管理器的时候记得替换掉这个，而不是直接append
+    override function onDamage(DamageHandler source, real damage) returns real
+        return damage
+    override function feedback(unit source)
 
-//为了方便点写的，反正也就用一次
-//不项了解重载运算符的知道这个是实现了减法就行
-function DamageCalculatePriority.op_minus(DamageCalculatePriority thr) returns integer
-    return this castTo integer - thr castTo integer
-
-
-//需要计算的伤害以上面进行计算
-//该枚举并非必须项
-//你自己写的伤害计算类可以不使用，也可以使用
-//毕竟是抽象方法嘛
-public enum DamageCalculateType
-    //乘法叠加，
-    //例如增加伤害的buff，减少伤害的buff（百分比的那种）
-    Multiplication
-    //加法叠加，
-    //属于特殊情况，一般都是百分比加成
-    //一般会出现在某些特殊技能上（可以用，但是不推荐，因为固定数值的伤害提升很难把握平衡性）
-    AddDirectly
-    //额外伤害
-    //该类型属于额外附加一次伤害，附加的伤害会触发伤害事件喝自定义的伤害管理
-    ExtraDamage
-
-
-//可以被管理伤害的对象
-//任何东西主要实现了这些都可以被管理伤害
-//所以你如果实现了魔兽中不存在的对象
-//只要你也遵循这个接口
-//也可以被管理
-//但是无法使用魔兽本身的伤害事件
-//后续版本会提供自定义伤害事件的可能性
-//现在如果你打算那样用，就只会收到错误
-public interface DamageHandlable
-    function getHP() returns real
-    function setHP(real health)
-    function containsFeedBack() returns bool
-    function feedbackCompute()
-    function calculateDamage(real originalDamage) returns real
-
-
-//伤害反馈
-//抽象类
-//只有一个执行函数
-//该类型被当作一种机制的判定喝执行
-//这种机制是受到伤害之后会触发的
-//书写机制的时候只需要继承该类
-//然后自由发挥
-public abstract class Feedback
-    abstract function exec()
-
-
-//伤害计算条目
-//每一条都被当做一次伤害计算
-public abstract class CustomDamageCaculateItem
-    construct(real value, DamageCalculateType damageCalculateType, real probability)
-        this.damageCalculateType = damageCalculateType
-        this.value = value
-        this.probability = probability
-    protected real value
-    protected DamageCalculateType damageCalculateType
-    protected real probability
-    protected DamageCalculatePriority priority
-    protected real originalDamage
-    protected function setOriginalDamage(real originalDamage)
-        this.originalDamage = originalDamage
-    function isProbabilistic() returns bool
-        return this.probability >= 1
-    abstract function exec() returns real
-  
-    
-//伤害计算队列/栈（无所谓的这是双链表）
-//管理伤害增减类的条目
-//会按照优先级给条目排序
-//注意！！！ 该类不是抽象类，也不推荐直接继承该类
-public class DamageCalculateStack
-    construct()
-        this.innerStack = new LinkedList<CustomDamageCaculateItem>()
-    function addItem(CustomDamageCaculateItem customDamageCaculateItem)
-        this.innerStack.add(customDamageCaculateItem)
-        this.innerStack.sortWith() (CustomDamageCaculateItem o1, CustomDamageCaculateItem o2) ->
-            return o1.priority - o2.priority
-    function removeItem(CustomDamageCaculateItem customDamageCaculateItem)
-        this.innerStack.remove(customDamageCaculateItem)
-    function exec(real originalDamage) returns real
-        let iter = this.innerStack.iterator()
-        var tempres = originalDamage
-        while iter.hasNext()
-            let ele = iter.next()
-            ele.setOriginalDamage(tempres)
-            tempres = ele.exec()
-        iter.close()
-        return tempres
-    private LinkedList<CustomDamageCaculateItem> innerStack
-
-
-//单位与伤害反馈的对应关系
-//用于查找该单位是否有伤害反馈
-//并在必要的时候使用这些反馈    
-HashMap<unit, LinkedList<Feedback>> feedbacks = new HashMap<unit, LinkedList<Feedback>>()
-
-//单位与伤害计算队列的对应关系
-//用于查找伤害计算队列
-//使用很简单就部队赘述了
-HashMap<unit, DamageCalculateStack> damageCals = new HashMap<unit, DamageCalculateStack>()
-
-//为单位实现接口的规范
-function unit.containsFeedBack() returns bool
-    return feedbacks.has(this)
-
-function unit.feedbackCompute()
-    feedbacks.get(this).forEach() (Feedback feedback) ->
-        feedback.exec()
-
-function unit.calculateDamage(real originalDamage) returns real
-    return damageCals.get(this).exec(originalDamage)
-
-public interface DamageTypeHandler
-    function exec(damagetype value)
-
-
-//实际的控制器
-//可以看到目前用的是单位伤害事件
-//所以目前不支持其他的类型
-public class CustomDamageHandler
-    //为控制器绑定对象
-    construct(DamageHandlable target, DamageTypeHandler handler)
-        this.target = target
-        let ds = GetEventDamageSource()
-        EventListener.add(EVENT_UNIT_DAMAGED) ->
-            this.handleDamage(handler)
-            if this.target.containsFeedBack()
-                this.target.feedbackCompute()
-            else
-                ds.feedbackCompute()
-    private DamageHandlable target
-    //事件发生时的处理函数
-    //如果你希望自定义这套流程
-    //你只需要创建自己的类型即可
-    //这个类更多时一种演示
-    private function handleDamage(DamageTypeHandler handler)
-        //todo
-        this.dt = DamageEvent.getDamageType()
-        print(dt.getHandleId())
-        this.handleDamageType(handler)
-            
-    
-    private function handleDamageType(DamageTypeHandler handler)
-        handler.exec(this.dt)
-
-    private damagetype dt
-
-//这个类的诞生只是因为这语言不能隐式实现接口（像go那样多好）
-public class CustomDamagableUnit implements DamageHandlable
-    construct(player p, int unitId, vec2 pos, angle facing)
-        this.target = createUnit(p, unitId, pos, facing)
-    private unit target
-    override function getHP() returns real
-        return target.getHP()
-    override function setHP(real health)
-        target.setHP(health)
-    override function containsFeedBack() returns bool
-        return target.containsFeedBack()
-    override function feedbackCompute()
-        target.feedbackCompute()
-    override function calculateDamage(real originalDamage) returns real
-        return target.calculateDamage(originalDamage)

@@ -1,22 +1,36 @@
 package main
+import charactorBuilder
+import ClosureTimers
+import ClosureEvents
 
-import Archive
-import FileIO
-
-/* Hello and welcome to Wurst!
-This is just a demo package. 
-You can modify it to tests things out 
-and then later delete it and create your own, new packages.
-Enjoy WurstScript? Consider starring our repo https://github.com/wurstscript/WurstScript */ 
 init
-    let char_1_arch = new Archive()
-    let char_1 = char_1_arch.newArchiveObject("char_1")
-    char_1_arch.newArchiveObject(char_1, "lvl", pointer(valueType.Integer, 1))
-    let char_1_arch_exp = char_1_arch.newArchiveObject(char_1, "exp")
-    char_1_arch.newArchiveObject(char_1_arch_exp, "maxExp", pointer(valueType.Real, new ChunkedString()..append("100.0") castTo int))
-    char_1_arch.newArchiveObject(char_1_arch_exp, "curExp", pointer(valueType.Real, new ChunkedString()..append("0.0") castTo int))
-    let arch = new File("archiveTest.pld")..write(localPlayer, char_1_arch.toString()).readAsString(localPlayer)
-    for line in arch.toLines()
-        print(line)
-    
-    
+    let test_unit = createUnit(players[0], 'hfoo', vec2(1, 1), angle(0))
+    // use this just because init block runs
+    // before the unitindexer
+    doAfter(0.01) ->
+        // if still nothing
+        // then it deserves a wtf
+        if test_unit.getData() == null
+            print("wtf")
+        else
+            let builder = test_unit.builder()
+            let data = test_unit.getData()
+            builder.setDamageMitigate(88)
+            data.showInfo()
+            EventListener.add(test_unit, EVENT_UNIT_DAMAGED) -> 
+                let miti = data.getDamageMitigate()
+                let raw = GetEventDamage()
+                let source = GetEventDamageSource()
+                real toneUp = 0
+                if source.getData() != null
+                    toneUp = source.getData().getDamageToneUp()
+                var res = raw * (toneUp - miti + 100) / 100
+                if res <= 0
+                    res = 1
+                BlzSetEventDamage(res)
+                if test_unit.isAlive()
+                    let upgrader = data.getCumstomUpgrader<unit>("lvl_upgrader")
+                    upgrader.gain_exp(10)
+                test_unit.getData().showInfo()
+            let another_test_unit = createUnit(players[0], 'hfoo', vec2(1, 1), angle(0))
+            another_test_unit.setAttackCooldown(0.01, 0)

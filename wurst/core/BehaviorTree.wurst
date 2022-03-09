@@ -1,0 +1,62 @@
+package BehaviorTree
+
+import LinkedList
+
+//行为树
+//用于boss的ai和某些情况下由bot控制的角色的ai
+//行为树的基本概念在这里就不详细介绍了
+//可以参考这篇知乎https://zhuanlan.zhihu.com/p/92298402
+
+
+//由于装饰器节点的实现属于条件节点和任务节点的封装
+//这里就不提供默认的实现了
+//如有需要可以自行实现
+//（其实是在下对于装饰器的理解不到位，怕写出问题来【doge】）
+
+//可以基于事件驱动也可以加入tick执行
+//根据实际需要自行设置即可
+//这里给出事件机制的默认实现，tick方式需要有整个游戏的主循环机制
+//目前此项目暂无此类支持
+
+public enum NodeType
+    Invalid
+    Root
+    Negative
+    Sequence
+    AlwaysSequence
+    RandomSequence
+    IfElse
+    WhileLoop
+    WaitEvent
+    Reset
+    SubTree
+    Parallel
+    Action
+    AlwaysTrue
+    Select
+    Probility
+
+public enum ActionArgType
+    Plain
+    Blackboard
+
+
+public enum NodeState
+    Init
+    Entering
+    Awaken
+    Revisiting
+    Blocking
+    WaitChild
+    Dead
+
+public interface NodeClosure
+    function exec()
+
+public class Node
+    bool in_fronts = false
+    Node parent = null
+    LinkedList<Node> children = new LinkedList<Node>()
+    bool result = false
+    bool running = false
+
